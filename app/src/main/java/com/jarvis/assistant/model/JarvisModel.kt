@@ -9,10 +9,12 @@ class JarvisModel {
         val t = text.lowercase(Locale.ROOT)
         val scoreCalendar = listOf("treffen", "termin", "geburtstag", "meeting", "morgen", "uhr").count { it in t }
         val scoreReminder = listOf("erinnere", "nicht vergessen", "deadline", "abgabe", "todo").count { it in t }
+        val scoreGerman = listOf("ich", "du", "er", "sie", "wir", "der", "die", "das", "nicht", "wenn", "weil", "bitte", "gestern", "morgen").count { it in t }
         return when {
             scoreCalendar >= 2 -> JarvisAction("calendar_event", summarize(text), .86, listOf("1 day before", "1 hour before", "15 minutes before"))
             scoreReminder >= 1 -> JarvisAction("reminder", summarize(text), .82, listOf("contextual"))
             "hey jarvis" in t -> JarvisAction("voice_command", text.substringAfter("hey jarvis").trim().ifBlank { "Bereit" }, .9)
+            scoreGerman >= 2 -> JarvisAction("german_basic", summarize(text), .78, listOf("parse_german_sentence"))
             else -> JarvisAction("note", summarize(text), .55)
         }
     }
