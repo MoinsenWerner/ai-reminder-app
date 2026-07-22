@@ -2,11 +2,15 @@ package com.jarvis.assistant
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,7 +19,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -24,7 +30,9 @@ import com.jarvis.assistant.data.JarvisLogger
 import com.jarvis.assistant.data.JarvisSettings
 import com.jarvis.assistant.data.Settings as JarvisPrefs
 import com.jarvis.assistant.model.JarvisModel
+import com.jarvis.assistant.services.JarvisOverlayService
 import com.jarvis.assistant.services.JarvisVoiceService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -32,8 +40,12 @@ class MainActivity : ComponentActivity() {
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { JarvisLogger.log(this, "permissions", it.toString()) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO))
+        permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.WRITE_EXTERNAL_STORAGE))
         ContextCompat.startForegroundService(this, Intent(this, JarvisVoiceService::class.java))
+        if (!Settings.canDrawOverlays(this)) startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
+        startService(Intent(this, JarvisOverlayService::class.java))
+        JarvisLogger.startPeriodicExternalFlush(this)
         setContent { JarvisApp(JarvisSettings(this)) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
     }
 }
@@ -41,11 +53,40 @@ class MainActivity : ComponentActivity() {
 @Composable fun JarvisApp(repo: JarvisSettings, openAccessibility: () -> Unit) {
     var screen by remember { mutableStateOf("home") }
     val settings by repo.flow.collectAsState(initial = JarvisPrefs())
-    MaterialTheme { Surface(Modifier.fillMaxSize()) { when (screen) {
-        "chat" -> ChatScreen { screen = "home" }
-        "settings" -> JarvisSettingsScreen(repo, settings, openAccessibility) { screen = "home" }
-        else -> HomeScreen(settings, { screen = "chat" }, { screen = "settings" }, repo.isAccessibilityServiceEnabled()) { screen = "detail:$it" }
-    } } }
+    MaterialTheme {
+        Surface(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
+                when (screen) {
+                    "chat" -> ChatScreen { screen = "home" }
+                    "settings" -> JarvisSettingsScreen(repo, settings, openAccessibility) { screen = "home" }
+                    else -> HomeScreen(settings, { screen = "chat" }, { screen = "settings" }, repo.isAccessibilityServiceEnabled()) { screen = "detail:$it" }
+                
+                ActionPopup(Modifier.align(Alignment.TopStart))
+            }
+        }
+    }
+}
+
+
+@Composable fun ActionPopup(modifier: Modifier = Modifier) {
+    var text by remember { mutableStateOf(JarvisLogger.recentSummary()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            text = JarvisLogger.recentSummary()
+            delay(1_000L)
+        }
+    }
+    Surface(
+        modifier = modifier.padding(4.dp).widthIn(max = 320.dp),
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.background(Color.Transparent).padding(6.dp),
+            style = MaterialTheme.typography.labelSmall
+        )
+    }
 }
 
 @Composable fun HomeScreen(settings: JarvisPrefs, chat: () -> Unit, settingsClick: () -> Unit, screenObserverActive: Boolean, detail: (String) -> Unit) {
@@ -90,18 +131,24 @@ class MainActivity : ComponentActivity() {
         OutlinedTextField(draft.userName, { draft = draft.copy(userName = it) }, label={Text("Name")})
         Button({ persist(draft) }) { Text("Name speichern") }
 
-        Text("Bildschirm beobachten")
-        apps.forEach { (pkg, label) -> Row(Modifier.fillMaxWidth().clickable {
-            val set = if (pkg in draft.observedApps) draft.observedApps - pkg else draft.observedApps + pkg
-            persist(draft.copy(observedApps = set))
-        }) { Checkbox(pkg in draft.observedApps, null); Text("$label ($pkg)") } }
+        Text("App-Berechtigungen")
+        Text("Beobachten | Interagieren | App")
+        LazyColumn(Modifier.height(320.dp)) {
+            items(apps) { (pkg, label) ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Checkbox(pkg in draft.observedApps, { checked ->
+                        val set = if (checked) draft.observedApps + pkg else draft.observedApps - pkg
+                        persist(draft.copy(observedApps = set))
+                    })
+                    Checkbox(pkg in draft.controlledApps, { checked ->
+                        val set = if (checked) draft.controlledApps + pkg else draft.controlledApps - pkg
+                        persist(draft.copy(controlledApps = set))
+                    })
+                    Text("$label ($pkg)", Modifier.weight(1f))
+                }
+            }
+        }
         Button(openAccessibility){Text("Screen Observer in Android aktivieren")}
-
-        Text("Apps steuern")
-        apps.forEach { (pkg, label) -> Row(Modifier.fillMaxWidth().clickable {
-            val set = if (pkg in draft.controlledApps) draft.controlledApps - pkg else draft.controlledApps + pkg
-            persist(draft.copy(controlledApps = set))
-        }) { Checkbox(pkg in draft.controlledApps, null); Text("$label steuern") } }
         Text("Standardberechtigung für neue Apps")
         listOf("ask_before_action", "read_only", "allow_safe_actions").forEach { policy ->
             FilterChip(selected = draft.defaultAppPolicy == policy, onClick = { persist(draft.copy(defaultAppPolicy = policy)) }, label = { Text(policy) })

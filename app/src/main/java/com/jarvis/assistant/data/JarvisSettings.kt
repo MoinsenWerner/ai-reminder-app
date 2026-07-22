@@ -29,9 +29,17 @@ data class Settings(
 
 class JarvisSettings(private val context: Context) {
     private val key = stringPreferencesKey("settings_blob")
+    @Volatile private var installedAppsCache: List<Pair<String, String>>? = null
     val flow: Flow<Settings> = context.store.data.map { parse(it[key].orEmpty()) }
     suspend fun save(s: Settings) { context.store.edit { it[key] = serialize(s) }; JarvisLogger.log(context, "settings", serialize(s)) }
-    fun installedApps(): List<Pair<String,String>> = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA).map { it.packageName to (context.packageManager.getApplicationLabel(it).toString()) }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
+    fun installedApps(): List<Pair<String,String>> = installedAppsCache ?: context.packageManager
+        .getInstalledApplications(PackageManager.GET_META_DATA)
+        .asSequence()
+        .map { it.packageName to context.packageManager.getApplicationLabel(it).toString() }
+        .distinctBy { it.first }
+        .sortedBy { it.second.lowercase() }
+        .toList()
+        .also { installedAppsCache = it }
     fun isAccessibilityServiceEnabled(): Boolean {
         val expected = "${context.packageName}/${JarvisAccessibilityService::class.java.name}"
         val enabled = Secure.getString(context.contentResolver, Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
