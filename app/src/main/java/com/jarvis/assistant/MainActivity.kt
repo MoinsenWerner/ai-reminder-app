@@ -132,3 +132,56 @@ class MainActivity : ComponentActivity() {
 }
 
 
+@Composable fun SettingsScreen(repo: JarvisSettings, s: JarvisPrefs, openAccessibility: () -> Unit, back: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var draft by remember(s) { mutableStateOf(s) }
+    var commandText by remember { mutableStateOf("") }
+    var behaviorText by remember { mutableStateOf(s.retrainedBehavior) }
+    val apps = remember { repo.installedApps().take(50) }
+    fun persist(next: JarvisPrefs) { draft = next; scope.launch { repo.save(next) } }
+    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+        Button(back){Text("Zurück")}
+        Text("Einstellungen", style=MaterialTheme.typography.headlineSmall)
+        OutlinedTextField(draft.userName, { draft = draft.copy(userName = it) }, label={Text("Name")})
+        Button({ persist(draft) }) { Text("Name speichern") }
+
+        Text("Bildschirm beobachten")
+        apps.forEach { (pkg, label) -> Row(Modifier.fillMaxWidth().clickable {
+            val set = if (pkg in draft.observedApps) draft.observedApps - pkg else draft.observedApps + pkg
+            persist(draft.copy(observedApps = set))
+        }) { Checkbox(pkg in draft.observedApps, null); Text("$label ($pkg)") } }
+        Button(openAccessibility){Text("Screen Observer in Android aktivieren")}
+
+        Text("Apps steuern")
+        apps.forEach { (pkg, label) -> Row(Modifier.fillMaxWidth().clickable {
+            val set = if (pkg in draft.controlledApps) draft.controlledApps - pkg else draft.controlledApps + pkg
+            persist(draft.copy(controlledApps = set))
+        }) { Checkbox(pkg in draft.controlledApps, null); Text("$label steuern") } }
+        Text("Standardberechtigung für neue Apps")
+        listOf("ask_before_action", "read_only", "allow_safe_actions").forEach { policy ->
+            FilterChip(selected = draft.defaultAppPolicy == policy, onClick = { persist(draft.copy(defaultAppPolicy = policy)) }, label = { Text(policy) })
+        }
+
+        Text("Stimmprofil")
+        Button({ persist(draft.copy(voiceProfileTrained = true)) }) { Text(if (draft.voiceProfileTrained) "Stimme neu trainieren" else "Stimme trainieren") }
+        Text(if (draft.voiceProfileTrained) "Stimmprofil gespeichert" else "Noch kein Stimmprofil")
+        OutlinedTextField(commandText, { commandText = it }, label={Text("Optionaler Voice-Command")})
+        Button({ if (commandText.isNotBlank() && draft.trainedVoiceCommands.size < 10) { persist(draft.copy(trainedVoiceCommands = draft.trainedVoiceCommands + commandText.trim())); commandText = "" } }) { Text("Voice-Command speichern") }
+        draft.trainedVoiceCommands.forEach { cmd -> Button({ persist(draft.copy(trainedVoiceCommands = draft.trainedVoiceCommands - cmd)) }) { Text("Löschen: $cmd") } }
+
+        Text("Modellmodus")
+        listOf("local ollama model","openai-api","local custom model").forEach { Row(Modifier.clickable { persist(draft.copy(modelMode = it)) }) { RadioButton(draft.modelMode==it,{ persist(draft.copy(modelMode=it)) }); Text(it) } }
+        when(draft.modelMode){
+            "openai-api" -> OutlinedTextField(draft.openAiKey, { draft = draft.copy(openAiKey = it) }, label={Text("OpenAI API-Key")})
+            "local ollama model" -> listOf("tinyllama", "phi3:mini", "qwen2.5:0.5b").forEach { model -> Button({ persist(draft.copy(ollamaModel = model)) }) { Text(if (draft.ollamaModel == model) "✓ $model" else model) } }
+            else -> {
+                Button({ persist(draft.copy(modelBackups = emptyList(), retrainedBehavior = "")) }) { Text("Trainiere das Modell neu") }
+                Button({ persist(draft.copy(modelBackups = draft.modelBackups + "backup-${Instant.now().epochSecond}")) }) { Text("Backup & Training fortsetzen/verfeinern") }
+                draft.modelBackups.forEach { backup -> Button({ persist(draft.copy(retrainedBehavior = "loaded:$backup")) }) { Text("Load backup: $backup") } }
+                OutlinedTextField(behaviorText, { behaviorText = it }, label={Text("Retrain single behavior")})
+                Button({ persist(draft.copy(retrainedBehavior = behaviorText.trim())) }) { Text("Verhalten neu trainieren") }
+            }
+        }
+        Button({ persist(draft) }){Text("Alle Einstellungen speichern")}
+    }
+}
