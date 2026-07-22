@@ -1,0 +1,80 @@
+{
+  "format": "jarvis-keyword-net-v1",
+  "accuracy": 1.0,
+  "labels": [
+    "calendar_event",
+    "note",
+    "reminder",
+    "voice_command"
+  ],
+  "weights": {
+    "calendar_event": {
+      "whatsapp": 1,
+      "gruppe": 1,
+      "treffen": 1,
+      "morgen": 1,
+      "um": 2,
+      "18": 1,
+      "uhr": 2,
+      "im": 1,
+      "park": 1,
+      "mama": 1,
+      "hat": 1,
+      "am": 1,
+      "12.08": 1,
+      "geburtstag": 1,
+      "meeting": 1,
+      "dienstag": 1,
+      "09": 1,
+      "00": 1,
+      "mit": 1,
+      "design": 1,
+      "team": 1,
+      "sprachnachricht": 1,
+      "können": 1,
+      "wir": 1,
+      "samstag": 1,
+      "14": 1,
+      "telefonieren": 1
+    },
+    "note": {
+      "video": 1,
+      "transkript": 1,
+      "rezept": 1,
+      "mit": 1,
+      "zutaten": 1,
+      "mehl": 1,
+      "milch": 1,
+      "eier": 1
+    },
+    "reminder": {
+      "nicht": 1,
+      "vergessen": 1,
+      "rechnung": 1,
+      "bis": 1,
+      "freitag": 1,
+      "bezahlen": 1,
+      "deadline": 1,
+      "projektabgabe": 1,
+      "nächste": 1,
+      "woche": 1
+    },
+    "voice_command": {
+      "hey": 1,
+      "jarvis": 1,
+      "schreib": 1,
+      "max": 1,
+      "dass": 1,
+      "ich": 1,
+      "zehn": 1,
+      "minuten": 1,
+      "später": 1,
+      "komme": 1
+    }
+  },
+  "architecture": {
+    "input": "lowercase token bag",
+    "hidden": "per-label sparse keyword weights",
+    "output": "intent + action policy"
+  }
+}
