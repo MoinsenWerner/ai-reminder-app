@@ -1,8 +1,10 @@
 package com.jarvis.assistant.data
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.provider.Settings.Secure
+import android.text.TextUtils
+import com.jarvis.assistant.services.JarvisAccessibilityService
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -29,7 +31,12 @@ class JarvisSettings(private val context: Context) {
     private val key = stringPreferencesKey("settings_blob")
     val flow: Flow<Settings> = context.store.data.map { parse(it[key].orEmpty()) }
     suspend fun save(s: Settings) { context.store.edit { it[key] = serialize(s) }; JarvisLogger.log(context, "settings", serialize(s)) }
-    fun installedApps(): List<Pair<String,String>> = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA).filter { it.flags and ApplicationInfo.FLAG_SYSTEM == 0 }.map { it.packageName to (context.packageManager.getApplicationLabel(it).toString()) }.sortedBy { it.second.lowercase() }
+    fun installedApps(): List<Pair<String,String>> = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA).map { it.packageName to (context.packageManager.getApplicationLabel(it).toString()) }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
+    fun isAccessibilityServiceEnabled(): Boolean {
+        val expected = "${context.packageName}/${JarvisAccessibilityService::class.java.name}"
+        val enabled = Secure.getString(context.contentResolver, Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+        return enabled.split(':').any { TextUtils.equals(it, expected) }
+    }
     companion object {
         private fun serialize(s: Settings) = listOf(
             s.userName,
