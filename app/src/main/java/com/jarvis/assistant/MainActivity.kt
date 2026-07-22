@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
                     "chat" -> ChatScreen { screen = "home" }
                     "settings" -> JarvisSettingsScreen(repo, settings, openAccessibility) { screen = "home" }
                     else -> HomeScreen(settings, { screen = "chat" }, { screen = "settings" }, repo.isAccessibilityServiceEnabled()) { screen = "detail:$it" }
-                }
+                
                 ActionPopup(Modifier.align(Alignment.TopStart))
             }
         }
