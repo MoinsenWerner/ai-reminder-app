@@ -53,20 +53,38 @@ class MainActivity : ComponentActivity() {
 @Composable fun JarvisApp(repo: JarvisSettings, openAccessibility: () -> Unit) {
     var screen by remember { mutableStateOf("home") }
     val settings by repo.flow.collectAsState(initial = JarvisPrefs())
+
+    val openChat = { screen = "chat" }
+    val openSettings = { screen = "settings" }
+    val openHome = { screen = "home" }
+    val openDetail: (String) -> Unit = { selected -> screen = "detail:$selected" }
+
     MaterialTheme {
-        Surface(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize()) {
-                when (screen) {
-                    "chat" -> ChatScreen { screen = "home" }
-                    "settings" -> JarvisSettingsScreen(repo, settings, openAccessibility) { screen = "home" }
-                    else -> HomeScreen(settings, { screen = "chat" }, { screen = "settings" }, repo.isAccessibilityServiceEnabled()) { screen = "detail:$it" }
-                
-                ActionPopup(Modifier.align(Alignment.TopStart))
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (screen == "chat") {
+                    ChatScreen(back = openHome)
+                } else if (screen == "settings") {
+                    JarvisSettingsScreen(
+                        repo = repo,
+                        s = settings,
+                        openAccessibility = openAccessibility,
+                        back = openHome
+                    )
+                } else {
+                    HomeScreen(
+                        settings = settings,
+                        chat = openChat,
+                        settingsClick = openSettings,
+                        screenObserverActive = repo.isAccessibilityServiceEnabled(),
+                        detail = openDetail
+                    )
+                }
+                ActionPopup(modifier = Modifier.align(Alignment.TopStart))
             }
         }
     }
 }
-
 
 @Composable fun ActionPopup(modifier: Modifier = Modifier) {
     var text by remember { mutableStateOf(JarvisLogger.recentSummary()) }
