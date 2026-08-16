@@ -1,0 +1,8 @@
+{"text":"WhatsApp Gruppe: Treffen morgen um 18 Uhr im Park","label":"calendar_event","actions":["create_calendar_event","remind_1d_1h_15m"]}
+{"text":"Mama hat am 12.08 Geburtstag","label":"calendar_event","actions":["all_day_birthday","remind_5d_1d"]}
+{"text":"Nicht vergessen: Rechnung bis Freitag bezahlen","label":"reminder","actions":["create_reminder","ask_due_time_if_missing"]}
+{"text":"hey jarvis schreib Max dass ich zehn Minuten später komme","label":"voice_command","actions":["confirm_before_sending_message"]}
+{"text":"Meeting Dienstag 09:00 mit Design Team","label":"calendar_event","actions":["create_calendar_event","remind_1d_1h_15m"]}
+{"text":"Deadline Projektabgabe nächste Woche","label":"reminder","actions":["create_reminder","remind_2d_1d"]}
+{"text":"Video Transkript: Rezept mit Zutaten Mehl Milch Eier","label":"note","actions":["summarize"]}
+{"text":"Sprachnachricht: Können wir Samstag um 14 Uhr telefonieren?","label":"calendar_event","actions":["create_calendar_event","ask_confirmation"]}
