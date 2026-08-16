@@ -1,0 +1,1 @@
+<resources><string name="app_name">Jarvis</string><string name="accessibility_label">Jarvis Screen Observer</string><string name="accessibility_description">Reads selected app screen text after you enable it, filters important information, and logs actions locally.</string></resources>
