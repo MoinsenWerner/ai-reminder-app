@@ -6,6 +6,54 @@ GRADLE_VERSION="8.7"
 GRADLE_ZIP_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
 WRAPPER_JAR="gradle/wrapper/gradle-wrapper.jar"
 
+run_as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+find_jdk17_home() {
+  for candidate in \
+    "${JAVA_HOME:-}" \
+    /usr/lib/jvm/java-17-openjdk-* \
+    /usr/lib/jvm/java-17-openjdk \
+    /usr/lib/jvm/temurin-17-jdk-* \
+    /usr/lib/jvm/zulu-17-*; do
+    if [ -n "$candidate" ] && [ -x "$candidate/bin/java" ]; then
+      "$candidate/bin/java" -version 2>&1 | grep -q 'version "17\.' && {
+        printf '%s\n' "$candidate"
+        return 0
+      }
+    fi
+  done
+  return 1
+}
+
+ensure_java17() {
+  if ! JDK17_HOME="$(find_jdk17_home)"; then
+    run_as_root apt-get update
+    run_as_root apt-get install -y openjdk-17-jdk
+    JDK17_HOME="$(find_jdk17_home)"
+  fi
+  export JAVA_HOME="$JDK17_HOME"
+  export PATH="$JAVA_HOME/bin:$PATH"
+  printf 'Using Java: '
+  java -version 2>&1 | head -n 1
+}
+
+ensure_base_tools() {
+  missing=()
+  for tool in curl unzip python3; do
+    command -v "$tool" >/dev/null || missing+=("$tool")
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    run_as_root apt-get update
+    run_as_root apt-get install -y "${missing[@]}"
+  fi
+}
+
 ensure_gradle_wrapper_jar() {
   if [ -f "$WRAPPER_JAR" ]; then return 0; fi
   tmp_dir="$(mktemp -d)"
@@ -15,11 +63,8 @@ ensure_gradle_wrapper_jar() {
   "$tmp_dir/gradle-${GRADLE_VERSION}/bin/gradle" --no-daemon wrapper --gradle-version "$GRADLE_VERSION"
 }
 
-
-if ! command -v java >/dev/null || ! java -version 2>&1 | grep -q '17\|21'; then
-  sudo apt-get update
-  sudo apt-get install -y openjdk-17-jdk unzip curl python3
-fi
+ensure_java17
+ensure_base_tools
 if [ ! -d "${ANDROID_HOME:-$HOME/android-sdk}" ]; then
   SDK_DIR="${ANDROID_HOME:-$HOME/android-sdk}"
   mkdir -p "$SDK_DIR/cmdline-tools"
