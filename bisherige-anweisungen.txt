@@ -1,0 +1,35 @@
+erstelle mir bitte sämtlichen code für eine android app (name: Jarvis). ich will sie in einem linux terminal (debian server) ohne gui später kompilieren, und will, dass du mir einen setup-script mitlieferst, der mir  die richte gradle, java, usw. herunterlädt und installiert, sowie das kompilieren der apk startet und alle notwendigen schritte bis dahin ausführt.
+
+ich will, dass wenn die app läuft (sie soll auch komplett im hintergrund weiterlaufen), dass sie den bildschirminhalt von meinem handy live mitliest, und wichtige infos rausfiltert. auch soll sie darauf achten, obe ich die worte "hey jarvis" sage, und soll dann auf meine vioce-commands hören. sie soll in der lage sein, meine stimme zu erkennen, sodass sie nur auf meine stimme reagiert. außerdem soll sie mithören können, wenn ich videos/voice-messages abspiele.
+
+Ich will, dass der package name com.jarvis.assistant ist, und dass die app intents empfangen kann, die ich mit der tasker app absende. dabei gebe ich als package com.jarvis.assistant an, und definiere über den wert class, was die app machen soll. die classes "receiveNewCommand", "receiveNewReminder", "receiveNewData" sollen empfänger für neue anweisungen dienen, wobei die anweisung selbst im Extra-Teil des intents als simple string stehen wird. die classes "receiveNewVideo" und "receiveNewAudio" werden 2 extras haben, wobei eines als simple string anweisungen enthält, und eines als address einen "file://storage/emulated/0/path/to/datei"-uri oder "https://link/to/audio/or/video" zu dem video/der audio, auf die sich die anweisungen beziehen, enthält.
+
+ich will, dass die app selbstständig (falls noch nicht gewährt) alle benötigten berechtigungen anfordert.
+ich will, dass die app auf ihrem home-screen mir ein dashboard mit verschiedenen cards zeigt, die jeweils zu der app gehörigen daten anzeigen. wenn ich eine card anklicke, sollen mir die daten detaillierter in einem neuen screen gezeigt werden. es soll oben links auf dem home-screen einen button mit einer chat-blase geben, über den ich mit der app, bzw. dem modell schriftlich kommunizieren kann, wobei der verlauf lokal gespeichert werden soll.
+auf dem home-screen soll es einen button geben, der mich zu den einstellungen bringt. hier will ich folgendes einstellen können:
+- bei welchen apps soll Jarvis deinen bildschrim beobachten? (auflisten aller installierter apps, und anschließende auswahl aller apps, bei denen Jarvis den bildschirm beobachten soll)
+- welche apps soll jarvis steuern können? (auswählen aller apps, bei denen Jarvis In-App aktionen ausführen darf (z.p. termine eintragen, wecker stellen, texte schreiben, scrollen, tippen, sachen löschen, sachen speichern, sachen löschen, uvm.) Anschließend soll man bei den ausgewählten apps auswählen können, was jarvis da genau machen darf, und was nicht.
+- man soll festlegen können, was jarvis standardmäßig in neu ausgwählten apps machen darf.
+- man soll einen namen angeben können. Jarvis soll den nutzer dann mit diesem namen ansprechen.
+- es soll eine option geben, über die man der app zeigen kann, wie die stimme desjenigen klingt, auf den sie reagieren soll.
+- es soll eine option geben, bei der man bis zu 10 optionale voice-commands trainieren kann, sodass die app diese deutlich schneller verstehen kann. trainierte voice-commands soll man auch wieder löschen/überschrieben können.
+- es soll eine option geben, bei der man zwischen folgenden optionen wählen kann: "local ollama model", "openai-api", "local custom model". wenn "local ollama model" gewählt wird, dann soll eine option erscheinen, bei der man eines von mehreren für das handy geeigneten ollama-modellen auswählen kann. wenn "openai-api" gewählt ist, soll stattdessen eine option zur eingabe des api-keys erscheinen, wenn "local custom model" gewählt wird, soll das app-interne modell verwendet werden, und es soll die optionen "trainiere das modell neu" (setzt das eingebaute modell auf den "werkszustand", also den stand, den es bei der installation hat, zurück, und man kann das modell mit neuen daten trainieren), "backup & training fortsetzten/verfeinern" (macht ein backup des aktuellen modells, und trainiert das modell auf seinem aktuellen stand weiter, ohne dass es zurückgesetzt wird), "load backup" (lässt den nutzer eines der erstellten modell-backups laden), "retrain single behavior" (lässt das modell "vergessen", wie es sich bisher bei einzelnen Sachen verhalten hat, und bringt ihm bei, wie es sich bei dieser Sache ab sofort verhalten soll. man soll aber zuerst auswählen, welche Sache vergessen und neu trainiert werden soll.) 
+
+das app interne modell: ein neuronales netzwerk, dem beigrebracht wurde, was alles wichtig sein könnte, und was es damit machen soll, also dass wenn bei whatsapp in nem gruppenchat z.b. ein treffen für einen bestimmten tag zu einer bestimmten zeit ausgemacht wurde, dass dann es sinnvoll ist, in den kalender einen termin für den tag und die uhrzeit einzutragen, dessen titel grob zusammengefasst aussagt, was ausgemacht wurde, und dass eine erinnerung oder mehrere erinnerungen mit zeitlich sinnvollen abständen gesetzt werden, also für geburtstage z.b. 5 tage und 1 tag vor dem geburtstag, da dieser ja ganztägig ist, für termine frühs wird einen tag, eine stunde und 15 minuten vorher erinnern, usw.
+
+es soll außerdem so trainiert sein, dass es die stimme des benutzers lernen & erkennen kann, wenn die app installiert ist. es soll außerdem so trainiert werden, dass es den bildschirminhalt live lesen kann.
+
+Es soll außerdem so trainiert werden, dass es jederzeit weitertrainier, oder das trainierte wissen überschrieben werden kann.
+
+
+Das interne modell soll vor dem kompilieren der app erstmal erstellt, und mit custom datensätzen trainiert werden. erstelle diese custom datensätze bitte so detailliert und sinnvoll wie möglich. stelle die struktur, bzw. den aufbau des neuronalen netzt des modells so auf, dass es bestmöglich für die gegebenen aufgaben der app angepasst ist, und auch nicht allzuviel leistung vom handy verbraucht.
+
+die custom datensätze sollen auch so aufgebaut werden, dass sie so optimal wie möglich auf das neuronale netzt zugeschnitten sind, und schon viele mögliche beispiele für wichtige sachen, commands, die sinnvollen aktionen dazu, usw. enthalten, sodass dass modell sich später schon gut zurechtfinden wird, auch nur anhand des trainings mit den datensätzen.
+
+wenn das modell beim training mit den datensätzen mindestens 80% richtig machen kann, dann soll es so  gespiechert werden, dass es sein gelerntes auch ohne die datensätze später wieder anwenden kann. das format gebe ich dir nicht vor, nutze bitte eines, was ich in die android app einbetten kann, und was die app dann auch nutzen kann.
+
+wenn die app/das modell irgendwelche aktionen ausführt, soll jedes noch so kleines detail mit datum, zeitstempel und auslöser in eine actions.log datei geschrieben werden. wenn der app-user irgendwelche einstellungen in der app ändert, sollen diese alle lokal gespeichert werden.
+
+
+
+Mach bitte, dass die exakte Version der gradle-wrapper.jar beim Setup automatisch heruntergeladen und in den richtigen Ordner verschoben wird.
