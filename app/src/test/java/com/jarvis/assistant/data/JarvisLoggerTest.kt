@@ -14,4 +14,9 @@ class JarvisLoggerTest {
     fun summaryHandlesNonPositiveLimit() {
         assertEquals("", JarvisLogger.summarize(listOf("entry"), 0))
     }
+
+    @Test
+    fun contextFreeSummaryIsSafeBeforeInitialization() {
+        assertEquals("", JarvisLogger.recentSummary())
+    }
 }

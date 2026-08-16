@@ -11,13 +11,14 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
+import com.jarvis.assistant.data.JarvisLogger
 
 class LogOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var view: TextView? = null
     private val updater = object : Runnable {
         override fun run() {
-            val summary = recentSummary(3)
+            val summary = JarvisLogger.recentSummary(3)
             view?.text = "J${if (summary.isBlank()) "" else "\n$summary"}"
             handler.postDelayed(this, 3_000)
         }
@@ -25,6 +26,7 @@ class LogOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        JarvisLogger.initialize(this)
         if (!Settings.canDrawOverlays(this)) return stopSelf()
         view = TextView(this).apply {
             text = "J"
