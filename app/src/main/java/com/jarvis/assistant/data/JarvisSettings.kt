@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 
 private val Context.store by preferencesDataStore("jarvis_settings")
 
@@ -21,59 +23,58 @@ data class Settings(
     val defaultAppPolicy: String = "ask_before_action",
     val openAiKey: String = "",
     val ollamaModel: String = "tinyllama",
-    val voiceProfileTrained: Boolean = false,
-    val trainedVoiceCommands: List<String> = emptyList(),
-    val modelBackups: List<String> = emptyList(),
-    val retrainedBehavior: String = ""
+    val logOverlayEnabled: Boolean = false,
+    val useHuggingFace: Boolean = false,
+    val huggingFaceModel: String = "",
+    val huggingFaceModelPath: String = ""
 )
 
 class JarvisSettings(private val context: Context) {
-    private val key = stringPreferencesKey("settings_blob")
-    @Volatile private var installedAppsCache: List<Pair<String, String>>? = null
-    val flow: Flow<Settings> = context.store.data.map { parse(it[key].orEmpty()) }
-    suspend fun save(s: Settings) { context.store.edit { it[key] = serialize(s) }; JarvisLogger.log(context, "settings", serialize(s)) }
-    fun installedApps(): List<Pair<String,String>> = installedAppsCache ?: context.packageManager
-        .getInstalledApplications(PackageManager.GET_META_DATA)
-        .asSequence()
-        .map { it.packageName to context.packageManager.getApplicationLabel(it).toString() }
-        .distinctBy { it.first }
-        .sortedBy { it.second.lowercase() }
-        .toList()
-        .also { installedAppsCache = it }
-    fun isAccessibilityServiceEnabled(): Boolean {
-        val expected = "${context.packageName}/${JarvisAccessibilityService::class.java.name}"
-        val enabled = Secure.getString(context.contentResolver, Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-        return enabled.split(':').any { TextUtils.equals(it, expected) }
+    private val key = stringPreferencesKey("settings_json")
+    val flow: Flow<Settings> = context.store.data.map { parse(it[key]) }
+
+    suspend fun save(settings: Settings) {
+        val encoded = serialize(settings)
+        context.store.edit { it[key] = encoded }
+        JarvisLogger.log(context, "settings", encoded)
     }
+
     companion object {
-        private fun serialize(s: Settings) = listOf(
-            s.userName,
-            s.modelMode,
-            s.observedApps.joinToString(","),
-            s.controlledApps.joinToString(","),
-            s.defaultAppPolicy,
-            s.openAiKey,
-            s.ollamaModel,
-            s.voiceProfileTrained.toString(),
-            s.trainedVoiceCommands.joinToString("~"),
-            s.modelBackups.joinToString(","),
-            s.retrainedBehavior
-        ).joinToString("|") { it.replace("|", " ") }
-        private fun parse(v: String): Settings {
-            val p = v.split("|")
-            return if (p.size < 7) Settings() else Settings(
-                userName = p[0],
-                modelMode = p[1],
-                observedApps = p[2].split(',').filter { it.isNotBlank() }.toSet(),
-                controlledApps = p[3].split(',').filter { it.isNotBlank() }.toSet(),
-                defaultAppPolicy = p[4],
-                openAiKey = p[5],
-                ollamaModel = p[6],
-                voiceProfileTrained = p.getOrNull(7)?.toBooleanStrictOrNull() ?: false,
-                trainedVoiceCommands = p.getOrNull(8)?.split('~')?.filter { it.isNotBlank() } ?: emptyList(),
-                modelBackups = p.getOrNull(9)?.split(',')?.filter { it.isNotBlank() } ?: emptyList(),
-                retrainedBehavior = p.getOrNull(10).orEmpty()
-            )
+        internal fun serialize(s: Settings): String = JSONObject().apply {
+            put("userName", s.userName)
+            put("modelMode", s.modelMode)
+            put("observedApps", JSONArray(s.observedApps.toList()))
+            put("controlledApps", JSONArray(s.controlledApps.toList()))
+            put("defaultAppPolicy", s.defaultAppPolicy)
+            put("openAiKey", s.openAiKey)
+            put("ollamaModel", s.ollamaModel)
+            put("logOverlayEnabled", s.logOverlayEnabled)
+            put("useHuggingFace", s.useHuggingFace)
+            put("huggingFaceModel", s.huggingFaceModel)
+            put("huggingFaceModelPath", s.huggingFaceModelPath)
+        }.toString()
+
+        internal fun parse(value: String?): Settings {
+            if (value.isNullOrBlank()) return Settings()
+            return runCatching {
+                val json = JSONObject(value)
+                Settings(
+                    userName = json.optString("userName", "Boss"),
+                    modelMode = json.optString("modelMode", "local custom model"),
+                    observedApps = json.optJSONArray("observedApps").toSet(),
+                    controlledApps = json.optJSONArray("controlledApps").toSet(),
+                    defaultAppPolicy = json.optString("defaultAppPolicy", "ask_before_action"),
+                    openAiKey = json.optString("openAiKey"),
+                    ollamaModel = json.optString("ollamaModel", "tinyllama"),
+                    logOverlayEnabled = json.optBoolean("logOverlayEnabled"),
+                    useHuggingFace = json.optBoolean("useHuggingFace"),
+                    huggingFaceModel = json.optString("huggingFaceModel"),
+                    huggingFaceModelPath = json.optString("huggingFaceModelPath")
+                )
+            }.getOrDefault(Settings())
         }
+
+        private fun JSONArray?.toSet(): Set<String> = if (this == null) emptySet() else
+            (0 until length()).mapNotNull { optString(it).takeIf(String::isNotBlank) }.toSet()
     }
 }
