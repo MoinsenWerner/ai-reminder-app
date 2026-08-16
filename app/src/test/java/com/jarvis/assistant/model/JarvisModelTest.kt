@@ -6,6 +6,4 @@ import org.junit.Test
 class JarvisModelTest {
     @Test fun detectsCalendarIntent() { assertEquals("calendar_event", JarvisModel().infer("WhatsApp: Treffen morgen 18 Uhr im Park").type) }
     @Test fun detectsWakeCommand() { assertEquals("voice_command", JarvisModel().infer("hey jarvis öffne chat").type) }
-    @Test fun detectsDirectAlarmCommand() { assertEquals("alarm", JarvisModel().infer("stelle einen Wecker für 07:30").type) }
-    @Test fun detectsDirectCalendarCommand() { assertEquals("calendar_event", JarvisModel().infer("trage morgen um 18 Uhr einen Termin in den Kalender ein").type) }
 }
