@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -25,6 +26,7 @@ import com.jarvis.assistant.data.*
 import com.jarvis.assistant.data.Settings as JarvisPrefs
 import com.jarvis.assistant.services.JarvisVoiceService
 import com.jarvis.assistant.services.LogOverlayService
+import com.jarvis.assistant.model.AssistantEngine
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -37,7 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions += listOf(Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.READ_MEDIA_AUDIO, Manifest.permission.READ_MEDIA_VIDEO)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) permissions += Manifest.permission.WRITE_EXTERNAL_STORAGE
         permissionLauncher.launch(permissions.toTypedArray())
@@ -73,7 +75,7 @@ fun JarvisApp(
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             when (screen) {
-                "chat" -> ChatScreen { screen = "home" }
+                "chat" -> ChatScreen(settings) { screen = "home" }
                 "settings" -> SettingsScreen(repo, settings, openAccessibility, requestFiles, setOverlay, { screen = "apps" }, { screen = "hfCatalog" }) { screen = "home" }
                 "apps" -> InstalledAppsScreen(appsRepo, repo, settings, requestFiles) { screen = "settings" }
                 "hfCatalog" -> HuggingFaceCatalogScreen(requestFiles) { screen = "settings" }
@@ -97,14 +99,30 @@ fun HomeScreen(settings: JarvisPrefs, chat: () -> Unit, settingsClick: () -> Uni
 }
 
 @Composable
-fun ChatScreen(back: () -> Unit) {
+fun ChatScreen(settings: JarvisPrefs, back: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf("") }
+    var working by remember { mutableStateOf(false) }
     val history = remember { mutableStateListOf<String>() }
     Column(Modifier.padding(16.dp)) {
         Button(back) { Text("Zurück") }
         LazyColumn(Modifier.weight(1f)) { items(history) { Text(it) } }
         OutlinedTextField(text, { text = it }, label = { Text("Nachricht") })
-        Button({ if (text.isNotBlank()) { history += "Du: $text"; history += "Jarvis: Verstanden."; text = "" } }) { Text("Senden") }
+        Button({
+            if (text.isNotBlank() && !working) {
+                val command = text
+                history += "Du: $command"
+                text = ""
+                working = true
+                scope.launch {
+                    runCatching { AssistantEngine.process(context, command, settings) }
+                        .onSuccess { result -> history += "Jarvis (${result.engine}): ${result.answer}${result.executedAction?.let { "\n$it" }.orEmpty()}" }
+                        .onFailure { history += "Jarvis: Fehler: ${it.message}" }
+                    working = false
+                }
+            }
+        }, enabled = !working) { Text(if (working) "Verarbeite …" else "Senden") }
     }
 }
 
@@ -131,6 +149,7 @@ fun SettingsScreen(
     var passwordError by remember { mutableStateOf(false) }
     var downloadStatus by remember { mutableStateOf("") }
     var downloaded by remember { mutableStateOf<List<HuggingFaceModel>>(emptyList()) }
+    var huggingFaceToken by remember(s.huggingFaceToken) { mutableStateOf(s.huggingFaceToken) }
 
     LaunchedEffect(useHf) {
         if (useHf && canManageJarvisFiles()) downloaded = HuggingFaceModels.downloaded()
@@ -194,6 +213,13 @@ fun SettingsScreen(
                 }
             }
             if (downloadStatus.isNotBlank()) Text(downloadStatus, style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                huggingFaceToken,
+                { huggingFaceToken = it },
+                label = { Text("Hugging-Face-Token für Inference") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         item { Button(openAccessibility, Modifier.fillMaxWidth()) { Text("Screen Observer in Android aktivieren") } }
         item { Button({
@@ -206,6 +232,7 @@ fun SettingsScreen(
                     useHuggingFace = useHf,
                     huggingFaceModel = if (useHf) selected else "",
                     huggingFaceModelPath = if (useHf) HuggingFaceModels.directoryFor(checkNotNull(model)).path else "",
+                    huggingFaceToken = huggingFaceToken,
                     logOverlayEnabled = overlay
                 ))
                 downloadStatus = if (useHf) "Aktives Modell gespeichert: ${model?.title}" else "Lokales/Custom Modell aktiviert"

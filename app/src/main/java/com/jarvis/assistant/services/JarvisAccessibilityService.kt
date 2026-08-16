@@ -5,7 +5,8 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.jarvis.assistant.data.JarvisLogger
 import com.jarvis.assistant.data.JarvisSettings
-import com.jarvis.assistant.model.JarvisModel
+import com.jarvis.assistant.data.Settings
+import com.jarvis.assistant.model.AssistantEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,22 +15,25 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class JarvisAccessibilityService : AccessibilityService() {
-    private val model = JarvisModel()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    @Volatile private var observedApps: Set<String> = emptySet()
+    @Volatile private var settings = Settings()
+    @Volatile private var lastProcessedText = ""
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        scope.launch { JarvisSettings(this@JarvisAccessibilityService).flow.collectLatest { observedApps = it.observedApps } }
+        scope.launch { JarvisSettings(this@JarvisAccessibilityService).flow.collectLatest { settings = it } }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString().orEmpty()
-        if (pkg !in observedApps) return
+        if (pkg !in settings.observedApps) return
         val text = collect(rootInActiveWindow).ifBlank { event?.text?.joinToString(" ").orEmpty() }
-        if (text.isNotBlank()) {
-            val action = model.infer(text)
-            if (action.confidence >= .8) JarvisLogger.log(this, "screen:$pkg", "${action.type}:${action.title}:${action.reminders}")
+        if (text.isNotBlank() && text != lastProcessedText) {
+            lastProcessedText = text
+            scope.launch {
+                runCatching { AssistantEngine.process(this@JarvisAccessibilityService, text, settings) }
+                    .onFailure { JarvisLogger.log(this@JarvisAccessibilityService, "screen:$pkg:error", it.message.orEmpty()) }
+            }
         }
     }
     override fun onInterrupt() { JarvisLogger.log(this, "accessibility", "interrupted") }

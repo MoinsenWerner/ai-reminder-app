@@ -22,7 +22,8 @@ data class Settings(
     val logOverlayEnabled: Boolean = false,
     val useHuggingFace: Boolean = false,
     val huggingFaceModel: String = "",
-    val huggingFaceModelPath: String = ""
+    val huggingFaceModelPath: String = "",
+    val huggingFaceToken: String = ""
 )
 
 class JarvisSettings(private val context: Context) {
@@ -32,7 +33,7 @@ class JarvisSettings(private val context: Context) {
     suspend fun save(settings: Settings) {
         val encoded = serialize(settings)
         context.store.edit { it[key] = encoded }
-        JarvisLogger.log(context, "settings", encoded)
+        JarvisLogger.log(context, "settings", "Einstellungen gespeichert")
     }
 
     companion object {
@@ -48,6 +49,7 @@ class JarvisSettings(private val context: Context) {
             put("useHuggingFace", s.useHuggingFace)
             put("huggingFaceModel", s.huggingFaceModel)
             put("huggingFaceModelPath", s.huggingFaceModelPath)
+            put("huggingFaceToken", s.huggingFaceToken)
         }.toString()
 
         internal fun parse(value: String?): Settings {
@@ -65,7 +67,8 @@ class JarvisSettings(private val context: Context) {
                     logOverlayEnabled = json.optBoolean("logOverlayEnabled"),
                     useHuggingFace = json.optBoolean("useHuggingFace"),
                     huggingFaceModel = json.optString("huggingFaceModel"),
-                    huggingFaceModelPath = json.optString("huggingFaceModelPath")
+                    huggingFaceModelPath = json.optString("huggingFaceModelPath"),
+                    huggingFaceToken = json.optString("huggingFaceToken")
                 )
             }.getOrDefault(Settings())
         }

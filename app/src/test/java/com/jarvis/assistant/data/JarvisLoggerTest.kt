@@ -19,4 +19,9 @@ class JarvisLoggerTest {
     fun contextFreeSummaryIsSafeBeforeInitialization() {
         assertEquals("", JarvisLogger.recentSummary())
     }
+
+    @Test
+    fun externalLogFlushIntervalIsThreeSeconds() {
+        assertEquals(3L, JarvisLogger.EXTERNAL_FLUSH_INTERVAL_SECONDS)
+    }
 }
