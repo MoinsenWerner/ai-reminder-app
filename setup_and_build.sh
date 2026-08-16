@@ -7,6 +7,48 @@ GRADLE_ZIP_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSIO
 WRAPPER_JAR="gradle/wrapper/gradle-wrapper.jar"
 COMMAND_LINE_TOOLS_BUILD="13114758"
 
+java_major() {
+  "$1" -version 2>&1 | awk -F'[".]' '/version/ { print ($2 == 1 ? $3 : $2); exit }'
+}
+
+find_java_17() {
+  local candidate
+  while IFS= read -r candidate; do
+    if [ -x "$candidate" ] && [ "$(java_major "$candidate")" = "17" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find /usr/lib/jvm -type f -path '*/bin/java' -print 2>/dev/null | sort)
+  return 1
+}
+
+install_packages() {
+  if [ "$(id -u)" -eq 0 ]; then
+    apt-get update
+    apt-get install -y "$@"
+  else
+    sudo apt-get update
+    sudo apt-get install -y "$@"
+  fi
+}
+
+select_supported_java() {
+  local java_bin=""
+  java_bin="$(find_java_17 || true)"
+  if [ -z "$java_bin" ]; then
+    install_packages openjdk-17-jdk-headless
+    java_bin="$(find_java_17 || true)"
+  fi
+  if [ -z "$java_bin" ]; then
+    printf 'Fehler: Java 17 wurde installiert, konnte aber unter /usr/lib/jvm nicht gefunden werden.\n' >&2
+    return 1
+  fi
+  export JAVA_HOME
+  JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$java_bin")")")"
+  export PATH="$JAVA_HOME/bin:$PATH"
+  printf 'Using Java: %s\n' "$(java -version 2>&1 | head -n 1)"
+}
+
 ensure_gradle_wrapper_jar() {
   if [ -f "$WRAPPER_JAR" ]; then return 0; fi
   tmp_dir="$(mktemp -d)"
@@ -17,10 +59,13 @@ ensure_gradle_wrapper_jar() {
 }
 
 
-if ! command -v java >/dev/null || ! java -version 2>&1 | grep -q '17\|21'; then
-  sudo apt-get update
-  sudo apt-get install -y openjdk-17-jdk unzip curl python3
-fi
+for command in curl unzip python3; do
+  if ! command -v "$command" >/dev/null; then
+    install_packages curl unzip python3
+    break
+  fi
+done
+select_supported_java
 SDK_DIR="${ANDROID_HOME:-$HOME/android-sdk}"
 TOOLS_MARKER="$SDK_DIR/cmdline-tools/latest/.jarvis-build"
 if [ ! -f "$TOOLS_MARKER" ] || [ "$(cat "$TOOLS_MARKER")" != "$COMMAND_LINE_TOOLS_BUILD" ]; then
