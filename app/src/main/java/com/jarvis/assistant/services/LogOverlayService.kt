@@ -11,14 +11,15 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
-import java.time.LocalTime
+import com.jarvis.assistant.data.JarvisLogger
 
 class LogOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var view: TextView? = null
     private val updater = object : Runnable {
         override fun run() {
-            view?.text = "J\n${LocalTime.now().withNano(0)}"
+            val summary = JarvisLogger.recentSummary(this@LogOverlayService, 3)
+            view?.text = "J${if (summary.isBlank()) "" else "\n$summary"}"
             handler.postDelayed(this, 3_000)
         }
     }

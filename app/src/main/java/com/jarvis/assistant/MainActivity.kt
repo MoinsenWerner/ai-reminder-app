@@ -181,7 +181,7 @@ fun SettingsScreen(
                     value = HuggingFaceModels.presets.firstOrNull { it.id == selected }?.title ?: selected.ifBlank { "Modell auswählen" },
                     onValueChange = {}, readOnly = true, label = { Text("Hugging-Face-Modell") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                 )
                 ExposedDropdownMenu(expanded, { expanded = false }) {
                     (HuggingFaceModels.presets + downloaded).distinctBy { it.id }.forEach { model ->
